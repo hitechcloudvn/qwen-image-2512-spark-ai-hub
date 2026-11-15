@@ -1,0 +1,40 @@
+# Qwen Image 2512 — Spark AI Hub · GitLab CI (mirror)
+# Bản mirror CI/CD của GitHub Actions / CI/CD mirror of GitHub Actions
+# Tổ chức / Org: hitechcloudvn — GitLab · GitHub
+
+stages:
+  - lint
+  - release
+
+lint:
+  stage: lint
+  image: python:3.12-slim
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_TAG =~ /^v/
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  script:
+    - echo "Lint · Kiểm tra mã nguồn"
+    - python -m py_compile app.py
+
+release:
+  stage: release
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v/
+  script:
+    - echo "Release $CI_COMMIT_TAG · Phát hành $CI_COMMIT_TAG"
+    - |
+      VERSION="${CI_COMMIT_TAG#v}"
+      awk -v ver="$VERSION" '
+        index($0, "## [" ver "]") == 1 {found=1; next}
+        found && index($0, "## [") == 1 {exit}
+        found {print}
+      ' CHANGELOG.md > release_notes.md
+      if [ ! -s release_notes.md ]; then
+        echo "Release ${CI_COMMIT_TAG}." > release_notes.md
+      fi
+  release:
+    tag_name: $CI_COMMIT_TAG
+    name: "$CI_COMMIT_TAG"
+    description: release_notes.md
